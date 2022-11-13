@@ -253,21 +253,16 @@ impl<T: std::io::Write> std::fmt::Write for Adaptor<T> {
 /// complete building an element, `build()` must be called.
 ///
 #[must_use]
-pub struct ElementBridge<'a, T, D, K> {
+pub struct ElementBridge<'a, T, D> {
     writer: &'a mut ElemWriter<T>,
     tag: D,
-    pub k: K,
 }
-impl<'a, T: fmt::Write, D: fmt::Display, K> ElementBridge<'a, T, D, K> {
-    pub fn build<J>(
-        self,
-        func: impl FnOnce(&mut ElemWriter<T>) -> Result<J, fmt::Error>,
-    ) -> Result<J, fmt::Error> {
-        let k = func(self.writer)?;
-        self.writer.0.write_str("</")?;
-        write!(escape_guard(&mut self.writer.0), "{}", self.tag)?;
-        self.writer.0.write_char('>')?;
-        Ok(k)
+impl<'a, T: fmt::Write, D: fmt::Display> ElementBridge<'a, T, D> {
+    pub fn build(self, func: impl FnOnce(&mut ElemWriter<T>)) {
+        func(self.writer);
+        self.writer.0.write_str("</").unwrap();
+        write!(escape_guard(&mut self.writer.0), "{}", self.tag).unwrap();
+        self.writer.0.write_char('>').unwrap();
     }
 }
 
@@ -276,11 +271,11 @@ impl<'a, T: fmt::Write, D: fmt::Display, K> ElementBridge<'a, T, D, K> {
 ///
 pub struct AttrWriter<'a, T>(&'a mut T);
 impl<'a, T: fmt::Write> AttrWriter<'a, T> {
-    pub fn attr(&mut self, a: impl fmt::Display, b: impl fmt::Display) -> fmt::Result {
-        write!(escape_guard(&mut self.0), " {}", a)?;
-        self.0.write_str("=\"")?;
-        write!(escape_guard(&mut self.0), "{}", b)?;
-        self.0.write_str("\"")
+    pub fn attr(&mut self, a: impl fmt::Display, b: impl fmt::Display) {
+        write!(escape_guard(&mut self.0), " {}", a).unwrap();
+        self.0.write_str("=\"").unwrap();
+        write!(escape_guard(&mut self.0), "{}", b).unwrap();
+        self.0.write_str("\"").unwrap();
     }
 
     ///
@@ -302,15 +297,15 @@ impl<'a, T: fmt::Write> AttrWriter<'a, T> {
         self.0
     }
 
-    pub fn put_raw(&mut self, a: impl fmt::Display) -> fmt::Result {
-        write!(escape_guard(&mut self.0), " {}", a)
+    pub fn put_raw(&mut self, a: impl fmt::Display) {
+        write!(escape_guard(&mut self.0), " {}", a).unwrap();
     }
 
     ///
     /// WARNING: The user can escape xml here and inject any xml elements.
     ///
-    pub fn put_raw_escapable(&mut self, a: impl fmt::Display) -> fmt::Result {
-        write!(&mut self.0, " {}", a)
+    pub fn put_raw_escapable(&mut self, a: impl fmt::Display) {
+        write!(&mut self.0, " {}", a).unwrap();
     }
     pub fn path(&mut self, a: impl FnOnce(&mut PathBuilder<T>) -> fmt::Result) -> fmt::Result {
         let mut p = PathBuilder { writer: self.0 };
@@ -364,42 +359,34 @@ impl<T: fmt::Write> ElemWriter<T> {
         &mut self.0
     }
 
-    pub fn put_raw(&mut self, a: impl fmt::Display) -> fmt::Result {
-        write!(escape_guard(&mut self.0), "{}", a)
+    pub fn put_raw(&mut self, a: impl fmt::Display) {
+        write!(escape_guard(&mut self.0), "{}", a).unwrap();
     }
 
     ///
     /// WARNING: The user can escape xml here and inject any xml elements.
     ///
-    pub fn put_raw_escapable(&mut self, a: impl fmt::Display) -> fmt::Result {
-        write!(&mut self.0, "{}", a)
+    pub fn put_raw_escapable(&mut self, a: impl fmt::Display) {
+        write!(&mut self.0, "{}", a).unwrap();
     }
 
-    pub fn single<D: fmt::Display>(
-        &mut self,
-        tag: D,
-        func: impl FnOnce(&mut AttrWriter<T>) -> fmt::Result,
-    ) -> fmt::Result {
-        self.0.write_char('<')?;
-        write!(escape_guard(&mut self.0), "{}", tag)?;
-        func(&mut AttrWriter(&mut self.0))?;
-        self.0.write_str(" />")
+    pub fn single<D: fmt::Display>(&mut self, tag: D, func: impl FnOnce(&mut AttrWriter<T>)) {
+        self.0.write_char('<').unwrap();
+        write!(escape_guard(&mut self.0), "{}", tag).unwrap();
+        func(&mut AttrWriter(&mut self.0));
+        self.0.write_str(" />").unwrap();
     }
-    pub fn elem<D: fmt::Display, K>(
+    pub fn elem<D: fmt::Display>(
         &mut self,
         tag: D,
-        func: impl FnOnce(&mut AttrWriter<T>) -> Result<K, fmt::Error>,
-    ) -> Result<ElementBridge<T, D, K>, fmt::Error> {
-        self.0.write_char('<')?;
-        write!(escape_guard(&mut self.0), "{}", tag)?;
-        let k = func(&mut AttrWriter(&mut self.0))?;
-        self.0.write_str(">")?;
+        func: impl FnOnce(&mut AttrWriter<T>),
+    ) -> ElementBridge<T, D> {
+        self.0.write_char('<').unwrap();
+        write!(escape_guard(&mut self.0), "{}", tag).unwrap();
+        func(&mut AttrWriter(&mut self.0));
+        self.0.write_str(">").unwrap();
 
-        Ok(ElementBridge {
-            writer: self,
-            tag,
-            k,
-        })
+        ElementBridge { writer: self, tag }
     }
 }
 
@@ -407,8 +394,8 @@ impl<T: fmt::Write> ElemWriter<T> {
 /// Specify no attributes needed.
 /// Equivalent to writing `|_|{}`.
 ///
-pub fn no_attr<T>() -> impl FnOnce(&mut AttrWriter<T>) -> fmt::Result {
-    move |_| Ok(())
+pub fn no_attr<T>() -> impl FnOnce(&mut AttrWriter<T>) {
+    move |_| ()
 }
 
 ///
