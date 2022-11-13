@@ -365,14 +365,14 @@ impl<T: fmt::Write> ElemWriter<T> {
     }
 
     pub fn put_raw(&mut self, a: impl fmt::Display) -> fmt::Result {
-        write!(escape_guard(&mut self.0), " {}", a)
+        write!(escape_guard(&mut self.0), "{}", a)
     }
 
     ///
     /// WARNING: The user can escape xml here and inject any xml elements.
     ///
     pub fn put_raw_escapable(&mut self, a: impl fmt::Display) -> fmt::Result {
-        write!(&mut self.0, " {}", a)
+        write!(&mut self.0, "{}", a)
     }
 
     pub fn single<D: fmt::Display>(
@@ -382,7 +382,6 @@ impl<T: fmt::Write> ElemWriter<T> {
     ) -> fmt::Result {
         self.0.write_char('<')?;
         write!(escape_guard(&mut self.0), "{}", tag)?;
-        self.0.write_char(' ')?;
         func(&mut AttrWriter(&mut self.0))?;
         self.0.write_str(" />")
     }
@@ -393,9 +392,8 @@ impl<T: fmt::Write> ElemWriter<T> {
     ) -> Result<ElementBridge<T, D, K>, fmt::Error> {
         self.0.write_char('<')?;
         write!(escape_guard(&mut self.0), "{}", tag)?;
-        self.0.write_char(' ')?;
         let k = func(&mut AttrWriter(&mut self.0))?;
-        self.0.write_str(" >")?;
+        self.0.write_str(">")?;
 
         Ok(ElementBridge {
             writer: self,
